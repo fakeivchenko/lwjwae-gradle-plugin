@@ -275,7 +275,9 @@ class LwjwaePluginTest {
         """);
     this.run("generateWindowsResourceScript");
     String script = Files.readString(this.project.resolve("build/lwjwae/windows/app.rc"));
-    String icon = this.project.resolve("build/lwjwae/windows/app.ico").toAbsolutePath().toString();
+    // Gradle names the project directory by its real path: /private/var for /var on macOS, the long
+    // form of an 8.3 name on Windows.
+    String icon = this.project.toRealPath().resolve("build/lwjwae/windows/app.ico").toString();
     Assertions.assertTrue(script.contains("1 ICON \"" + icon.replace('\\', '/') + "\""), script);
     Assertions.assertTrue(
         Files.exists(this.project.resolve("build/lwjwae/windows/app.ico")),
