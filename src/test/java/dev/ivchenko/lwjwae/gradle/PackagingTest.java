@@ -113,15 +113,17 @@ class PackagingTest {
     Assertions.assertEquals(0755, data.get("./usr/bin/demo-app").getMode() & 0777);
     Assertions.assertEquals(
         0644, data.get("./usr/share/applications/demo-app.desktop").getMode() & 0777);
-    Assertions.assertTrue(data.containsKey("./usr/share/icons/hicolor/256x256/apps/demo-app.png"));
-    Assertions.assertTrue(data.containsKey("./usr/share/icons/hicolor/16x16/apps/demo-app.png"));
+    Assertions.assertTrue(
+        data.containsKey("./usr/share/icons/hicolor/256x256/apps/com.example.demo-app.png"));
+    Assertions.assertTrue(
+        data.containsKey("./usr/share/icons/hicolor/16x16/apps/com.example.demo-app.png"));
     String desktop =
         new String(
             read(members.get("data.tar.gz"), "./usr/share/applications/demo-app.desktop"),
             StandardCharsets.UTF_8);
     Assertions.assertTrue(desktop.contains("Name=Demo App\n"), desktop);
     Assertions.assertTrue(desktop.contains("Exec=/usr/bin/demo-app\n"), desktop);
-    Assertions.assertTrue(desktop.contains("Icon=demo-app\n"), desktop);
+    Assertions.assertTrue(desktop.contains("Icon=com.example.demo-app\n"), desktop);
     Assertions.assertTrue(desktop.contains("Categories=Utility;\n"), desktop);
   }
 
@@ -164,7 +166,7 @@ class PackagingTest {
     Path appDir = extracted.resolve("squashfs-root");
     Assertions.assertTrue(Files.isSymbolicLink(appDir.resolve("AppRun")));
     Assertions.assertTrue(Files.exists(appDir.resolve("usr/bin/demo-app")));
-    Assertions.assertTrue(Files.exists(appDir.resolve("demo-app.png")));
+    Assertions.assertTrue(Files.exists(appDir.resolve("com.example.demo-app.png")));
     Assertions.assertTrue(Files.exists(appDir.resolve(".DirIcon")));
     String desktop = Files.readString(appDir.resolve("demo-app.desktop"));
     Assertions.assertTrue(desktop.contains("Exec=demo-app\n"), desktop);
@@ -190,7 +192,7 @@ class PackagingTest {
     Files.delete(this.project.resolve(LwjwaeExtension.DEFAULT_ICON));
     this.run("packageAppImage");
     Path appDir = this.project.resolve("build/lwjwae/appimage/AppDir");
-    BufferedImage icon = ImageIO.read(appDir.resolve("demo-app.png").toFile());
+    BufferedImage icon = ImageIO.read(appDir.resolve("com.example.demo-app.png").toFile());
     Assertions.assertEquals(256, icon.getWidth());
     Assertions.assertTrue(Files.exists(appDir.resolve(".DirIcon")));
   }

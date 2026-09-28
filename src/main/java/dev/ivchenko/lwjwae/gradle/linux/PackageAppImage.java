@@ -84,6 +84,14 @@ public abstract class PackageAppImage extends DefaultTask {
   @PathSensitive(PathSensitivity.NONE)
   public abstract RegularFileProperty getIcon();
 
+  /**
+   * The name of the icon in the icon theme, unique to the application, such as {@code
+   * com.example.notes}: an icon theme may have a generic icon named after the executable, such as
+   * {@code notes} in Breeze, and it would win over the one of the application.
+   */
+  @Input
+  public abstract Property<String> getIconName();
+
   /** The name shown in the menu. */
   @Input
   public abstract Property<String> getDisplayName();
@@ -147,7 +155,7 @@ public abstract class PackageAppImage extends DefaultTask {
             this.getDisplayName().get(),
             this.getSummary().get(),
             name,
-            name,
+            this.getIconName().get(),
             this.getCategories().get()),
         StandardCharsets.UTF_8);
     // appimagetool refuses an AppDir without the icon that the desktop entry names.
@@ -156,7 +164,7 @@ public abstract class PackageAppImage extends DefaultTask {
             this.getIcon().isPresent()
                 ? Icons.scale(Icons.read(this.getIcon().get().getAsFile()), 256)
                 : Icons.placeholder(this.getDisplayName().get()));
-    Files.write(appDir.resolve(name + ".png"), png);
+    Files.write(appDir.resolve(this.getIconName().get() + ".png"), png);
     Files.write(appDir.resolve(".DirIcon"), png);
 
     File output = this.getAppImage().get().getAsFile();

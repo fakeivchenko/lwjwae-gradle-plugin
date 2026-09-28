@@ -4,9 +4,11 @@ import dev.ivchenko.lwjwae.gradle.LinuxBackend;
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
 import dev.ivchenko.lwjwae.gradle.LwjwaeLayout;
 import dev.ivchenko.lwjwae.gradle.PackagingExtension;
+import dev.ivchenko.lwjwae.gradle.macos.MacOsConfiguration;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
 import lombok.experimental.UtilityClass;
 import org.gradle.api.Project;
+import org.gradle.api.provider.Provider;
 
 /**
  * Everything the plugin does for Linux: the defaults of {@code packaging.deb {}} and {@code
@@ -53,6 +55,7 @@ public class LinuxConfiguration {
               task.onlyIf(_ -> Platform.isLinux());
               task.getExecutable().set(layout.executable());
               task.getIcon().set(extension.getIcon());
+              task.getIconName().set(LinuxConfiguration.iconName(project, extension));
               task.getPackageName().set(deb.getPackageName());
               task.getDisplayName().set(extension.getDisplayName());
               task.getVersion().set(deb.getVersion());
@@ -96,6 +99,7 @@ public class LinuxConfiguration {
               task.onlyIf(_ -> Platform.isLinux());
               task.getExecutable().set(layout.executable());
               task.getIcon().set(extension.getIcon());
+              task.getIconName().set(LinuxConfiguration.iconName(project, extension));
               task.getDisplayName().set(extension.getDisplayName());
               task.getImageName().set(extension.getImageName());
               task.getSummary().set(packaging.getDescription());
@@ -118,5 +122,12 @@ public class LinuxConfiguration {
                                           + PackageAppImage.architecture()
                                           + ".AppImage")));
             });
+  }
+
+  /** {@code GROUP.NAME} of the image, as the name of its icon. */
+  private Provider<String> iconName(Project project, LwjwaeExtension extension) {
+    return extension
+        .getImageName()
+        .map(name -> MacOsConfiguration.bundleIdentifier(project.getGroup().toString(), name));
   }
 }

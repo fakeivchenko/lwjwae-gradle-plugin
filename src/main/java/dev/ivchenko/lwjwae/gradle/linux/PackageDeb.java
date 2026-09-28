@@ -61,6 +61,14 @@ public abstract class PackageDeb extends DefaultTask {
   @Input
   public abstract Property<String> getPackageName();
 
+  /**
+   * The name of the icon in the icon theme, unique to the application, such as {@code
+   * com.example.notes}: an icon theme may have a generic icon named after the executable, such as
+   * {@code notes} in Breeze, and it would win over the one of the application.
+   */
+  @Input
+  public abstract Property<String> getIconName();
+
   /** The name shown in the menu. */
   @Input
   public abstract Property<String> getDisplayName();
@@ -124,7 +132,7 @@ public abstract class PackageDeb extends DefaultTask {
                 this.getDisplayName().get(),
                 this.getSummary().get(),
                 "/usr/bin/" + name,
-                name,
+                this.getIconName().get(),
                 this.getCategories().get())
             .getBytes(StandardCharsets.UTF_8);
 
@@ -149,7 +157,7 @@ public abstract class PackageDeb extends DefaultTask {
           byte[] png = Icons.png(Icons.scale(image, size));
           PackageDeb.directory(tar, sized);
           PackageDeb.directory(tar, sized + "apps/");
-          PackageDeb.file(tar, sized + "apps/" + name + ".png", png, REGULAR);
+          PackageDeb.file(tar, sized + "apps/" + this.getIconName().get() + ".png", png, REGULAR);
           installedBytes += png.length;
         }
       }
