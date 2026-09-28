@@ -138,15 +138,18 @@ public abstract class PackageMsi extends DefaultTask {
     boolean perUser = this.getPerUser().get();
     String executable = this.getExecutableName().get();
     String product = PackageMsi.escape(this.getProductName().get());
+    // Windows Installer writes the icon out to a file named by its id, and the shell tells the type
+    // of
+    // that file by the extension, so the id ends in .ico.
     String icon =
         this.getIcon().isPresent()
             ? """
-                <Icon Id="AppIcon" SourceFile="%s" />
-                <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+                <Icon Id="AppIcon.ico" SourceFile="%s" />
+                <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
             """
                 .formatted(PackageMsi.escape(this.getIcon().get().getAsFile().getAbsolutePath()))
             : "";
-    String iconAttribute = this.getIcon().isPresent() ? " Icon=\"AppIcon\"" : "";
+    String iconAttribute = this.getIcon().isPresent() ? " Icon=\"AppIcon.ico\"" : "";
     String folder =
         perUser
             ? """
