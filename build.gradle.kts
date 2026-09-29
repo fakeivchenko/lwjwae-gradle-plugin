@@ -72,6 +72,8 @@ dependencies {
 
     // ar and tar for the .deb package
     implementation("org.apache.commons:commons-compress:1.28.0")
+    // xz for the Arch Linux package, in Java: commons-compress uses it when it's there
+    implementation("org.tukaani:xz:1.10")
 
     // JUnit, and TestKit to run the plugin in a real build
     testImplementation(platform("org.junit:junit-bom:6.0.0"))

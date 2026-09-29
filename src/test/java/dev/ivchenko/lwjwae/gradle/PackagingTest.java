@@ -1,6 +1,7 @@
 package dev.ivchenko.lwjwae.gradle;
 
 import dev.ivchenko.lwjwae.gradle.linux.PackageAppImage;
+import dev.ivchenko.lwjwae.gradle.linux.PackageArch;
 import dev.ivchenko.lwjwae.gradle.linux.PackageDeb;
 import dev.ivchenko.lwjwae.gradle.windows.PackageMsi;
 import java.awt.Color;
@@ -11,7 +12,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -20,6 +25,7 @@ import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.gradle.api.GradleException;
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.Assertions;
@@ -71,6 +77,7 @@ class PackagingTest {
             packaging.homepage = "https://example.com"
         }
         tasks.withType<PackageDeb>().configureEach { setDependsOn(emptyList<Any>()); executable = file("fake-app") }
+        tasks.withType<PackageArch>().configureEach { setDependsOn(emptyList<Any>()); executable = file("fake-app") }
         tasks.withType<PackageAppImage>().configureEach { setDependsOn(emptyList<Any>()); executable = file("fake-app") }
         tasks.withType<PackageMacApp>().configureEach { setDependsOn(emptyList<Any>()); executable = file("fake-app") }
         """);
@@ -198,6 +205,67 @@ class PackagingTest {
   }
 
   @Test
+  @EnabledOnOs(OS.LINUX)
+  void archPackageCarriesTheMetadataTheTreeAndTheFiles() throws IOException {
+    this.run("packageArch");
+    Path archive =
+        this.project.resolve(
+            "build/lwjwae/dist/demo-app-1.2.3-1-" + PackageArch.architecture() + ".pkg.tar.xz");
+    Assertions.assertTrue(Files.exists(archive), "no package at " + archive);
+
+    Map<String, byte[]> files = new LinkedHashMap<>();
+    Map<String, TarArchiveEntry> entries = new LinkedHashMap<>();
+    try (TarArchiveInputStream tar =
+        new TarArchiveInputStream(new XZCompressorInputStream(Files.newInputStream(archive)))) {
+      TarArchiveEntry entry;
+      while ((entry = tar.getNextEntry()) != null) {
+        entries.put(entry.getName(), entry);
+        files.put(entry.getName(), tar.readAllBytes());
+      }
+    }
+    Assertions.assertEquals(
+        List.of(".PKGINFO", ".MTREE"),
+        List.copyOf(entries.keySet()).subList(0, 2),
+        "metadata first");
+    String info = new String(files.get(".PKGINFO"), StandardCharsets.UTF_8);
+    Assertions.assertTrue(info.contains("\npkgname = demo-app\n"), info);
+    Assertions.assertTrue(info.contains("\npkgver = 1.2.3-1\n"), info);
+    Assertions.assertTrue(info.contains("\npkgdesc = A demo that shows the packages\n"), info);
+    Assertions.assertTrue(info.contains("\nurl = https://example.com\n"), info);
+    Assertions.assertTrue(info.contains("\npackager = Example <hello@example.com>\n"), info);
+    Assertions.assertTrue(info.contains("\narch = " + PackageArch.architecture() + "\n"), info);
+    Assertions.assertTrue(info.endsWith("depend = gtk3\ndepend = webkit2gtk-4.1\n"), info);
+
+    Assertions.assertEquals(0755, entries.get("usr/bin/demo-app").getMode() & 0777);
+    Assertions.assertEquals(0, entries.get("usr/bin/demo-app").getLongUserId());
+    Assertions.assertTrue(entries.containsKey("usr/share/applications/demo-app.desktop"));
+    Assertions.assertTrue(
+        entries.containsKey("usr/share/icons/hicolor/256x256/apps/com.example.demo-app.png"));
+
+    String mtree;
+    try (GZIPInputStream gzip =
+        new GZIPInputStream(new ByteArrayInputStream(files.get(".MTREE")))) {
+      mtree = new String(gzip.readAllBytes(), StandardCharsets.UTF_8);
+    }
+    Assertions.assertTrue(mtree.startsWith("#mtree\n/set type=file uid=0 gid=0 mode=644\n"), mtree);
+    Assertions.assertTrue(mtree.contains("\n./usr/bin time="), mtree);
+    byte[] program = files.get("usr/bin/demo-app");
+    String digest = HexFormat.of().formatHex(PackagingTest.sha256(program));
+    Assertions.assertTrue(
+        mtree.contains(" mode=755 size=" + program.length + " sha256digest=" + digest + "\n"),
+        mtree);
+    long time = entries.get("usr/bin/demo-app").getModTime().getTime() / 1000;
+    Assertions.assertTrue(mtree.contains("./usr/bin/demo-app time=" + time + ".0 "), mtree);
+  }
+
+  @Test
+  void archNamesAndVersionsFitPacman() {
+    Assertions.assertEquals("my-app", PackageArch.packageName("My App"));
+    Assertions.assertEquals("app", PackageArch.packageName(".app"));
+    Assertions.assertEquals("1.2.3_SNAPSHOT", PackageArch.packageVersion("1.2.3-SNAPSHOT"));
+  }
+
+  @Test
   void upgradeCodeIsStableAndVersionsFitTheInstaller() {
     Assertions.assertEquals(
         PackageMsi.upgradeCode("com.example", "demo"),
@@ -232,6 +300,14 @@ class PackagingTest {
         .withPluginClasspath()
         .withArguments(task, "-q", "--stacktrace")
         .build();
+  }
+
+  private static byte[] sha256(byte[] content) {
+    try {
+      return MessageDigest.getInstance("SHA-256").digest(content);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   private static boolean isPosix() {

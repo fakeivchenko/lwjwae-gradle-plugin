@@ -26,7 +26,7 @@ The plugin sets a Java project up as an lwjwae application:
   `rc.exe` from the Windows SDK.
 - **macOS.** An `Info.plist` embedded into the executable with the bundle identifier that the
   helper processes of WebKit need, and the name that the menu bar and the Dock show.
-- **Packages.** A `.deb` and an AppImage on Linux, an `.app` bundle and a `.dmg` on macOS, an
+- **Packages.** A `.deb`, an Arch Linux package, and an AppImage on Linux, an `.app` bundle and a `.dmg` on macOS, an
   `.msi` installer on Windows, each from one task, with the icon and the metadata above.
 
 ## Usage

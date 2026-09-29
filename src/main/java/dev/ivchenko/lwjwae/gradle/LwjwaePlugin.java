@@ -102,6 +102,8 @@ public class LwjwaePlugin implements Plugin<Project> {
                 task.dependsOn(
                     LwjwaePlugin.ifEnabled(packaging.getDeb().getEnabled(), "packageDeb"));
                 task.dependsOn(
+                    LwjwaePlugin.ifEnabled(packaging.getArch().getEnabled(), "packageArch"));
+                task.dependsOn(
                     LwjwaePlugin.ifEnabled(
                         packaging.getAppImage().getEnabled(), "packageAppImage"));
               }
