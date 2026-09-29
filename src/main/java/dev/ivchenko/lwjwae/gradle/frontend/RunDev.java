@@ -3,10 +3,11 @@ package dev.ivchenko.lwjwae.gradle.frontend;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -82,13 +83,19 @@ public abstract class RunDev extends JavaExec {
     }
   }
 
-  /** Waits until {@code url} answers, or {@code server} exits, or the time is up. */
+  /**
+   * Waits until something listens at the host and port of {@code url}, or {@code server} exits, or
+   * the time is up.
+   *
+   * <p>Every address of the host counts: Node.js 17 and later resolve {@code localhost} to {@code
+   * ::1} first, so Vite listens there alone, and a client that tries {@code 127.0.0.1} would wait
+   * for a server that is up. The web engine of the window tries both.
+   */
   private static void waitFor(String url, Process server) {
+    URI uri = URI.create(url);
+    int port = uri.getPort() >= 0 ? uri.getPort() : "https".equals(uri.getScheme()) ? 443 : 80;
     Instant deadline = Instant.now().plus(STARTUP);
-    try (HttpClient client =
-        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build()) {
-      HttpRequest request =
-          HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(2)).build();
+    try {
       while (Instant.now().isBefore(deadline)) {
         if (!server.isAlive()) {
           throw new GradleException(
@@ -97,12 +104,15 @@ public abstract class RunDev extends JavaExec {
                   + " before it served "
                   + url);
         }
-        try {
-          client.send(request, HttpResponse.BodyHandlers.discarding());
-          return;
-        } catch (IOException _) {
-          Thread.sleep(250);
+        for (InetAddress address : RunDev.addresses(uri.getHost())) {
+          try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(address, port), 500);
+            return;
+          } catch (IOException _) {
+            // Not this address, or not yet.
+          }
         }
+        Thread.sleep(250);
       }
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -114,5 +124,13 @@ public abstract class RunDev extends JavaExec {
             + " within "
             + STARTUP.toSeconds()
             + " seconds");
+  }
+
+  private static InetAddress[] addresses(String host) {
+    try {
+      return InetAddress.getAllByName(host);
+    } catch (UnknownHostException _) {
+      return new InetAddress[0];
+    }
   }
 }

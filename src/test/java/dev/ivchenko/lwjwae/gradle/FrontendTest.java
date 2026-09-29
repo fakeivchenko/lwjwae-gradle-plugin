@@ -53,7 +53,8 @@ class FrontendTest {
         frontend.resolve("dev.js"),
         """
         const http = require("http");
-        http.createServer((_, response) => response.end("dev")).listen(Number(process.env.PORT));
+        // On ::1 alone, where Vite listens for localhost on Node.js 17 and later.
+        http.createServer((_, response) => response.end("dev")).listen(Number(process.env.PORT), "::1");
         console.log("serving");
         """);
     Path main = Files.createDirectories(this.project.resolve("src/main/java/demo"));
@@ -63,12 +64,18 @@ class FrontendTest {
         package demo;
 
         public class Main {
+          // Every address of the host, as the web engine of a window tries them.
           public static void main(String[] args) throws Exception {
-            String url = System.getenv("LWJWAE_DEV_SERVER_URL");
-            try (var client = java.net.http.HttpClient.newHttpClient()) {
-              var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(url)).build();
-              String body = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString()).body();
-              System.out.println("PAGE " + url + " " + body);
+            java.net.URI url = java.net.URI.create(System.getenv("LWJWAE_DEV_SERVER_URL"));
+            for (var address : java.net.InetAddress.getAllByName(url.getHost())) {
+              try (var socket = new java.net.Socket(address, url.getPort())) {
+                socket.getOutputStream().write("GET / HTTP/1.0\\r\\n\\r\\n".getBytes());
+                String response = new String(socket.getInputStream().readAllBytes());
+                System.out.println("PAGE " + url + " " + response.substring(response.indexOf("\\r\\n\\r\\n") + 4));
+                return;
+              } catch (java.io.IOException e) {
+                // The next address.
+              }
             }
           }
         }
