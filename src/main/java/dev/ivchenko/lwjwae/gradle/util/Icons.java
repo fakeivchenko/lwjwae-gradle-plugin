@@ -161,8 +161,10 @@ public class Icons {
   }
 
   /**
-   * A {@code BITMAPINFOHEADER}, bottom-up BGRA rows, and then an all-zero AND mask. The alpha
-   * channel does the masking.
+   * A {@code BITMAPINFOHEADER}, bottom-up BGRA rows, and then the AND mask, bottom-up too, with a
+   * set bit for each pixel that is more transparent than not. Windows draws with the alpha channel;
+   * the mask is for code that draws an icon without it, which would show the transparent pixels
+   * black if the mask said they were opaque.
    */
   private byte[] bitmap(BufferedImage image) {
     int size = image.getWidth();
@@ -181,6 +183,15 @@ public class Icons {
             .put((byte) (argb >> 16))
             .put((byte) (argb >>> 24));
       }
+    }
+    for (int y = size - 1; y >= 0; y--) {
+      byte[] row = new byte[maskRow];
+      for (int x = 0; x < size; x++) {
+        if (image.getRGB(x, y) >>> 24 < 128) {
+          row[x / 8] |= (byte) (0x80 >>> (x % 8));
+        }
+      }
+      out.put(row);
     }
     return out.array();
   }

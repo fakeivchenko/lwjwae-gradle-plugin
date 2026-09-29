@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle;
 
+import dev.ivchenko.lwjwae.gradle.frontend.FrontendExtension;
 import dev.ivchenko.lwjwae.gradle.macos.MacOsExtension;
 import dev.ivchenko.lwjwae.gradle.windows.WindowsExtension;
 import org.gradle.api.Action;
@@ -124,6 +125,10 @@ public abstract class LwjwaeExtension {
   @Nested
   public abstract MacOsExtension getMacos();
 
+  /** The page that npm builds, if any. */
+  @Nested
+  public abstract FrontendExtension getFrontend();
+
   /** The installers and bundles around the executable. */
   @Nested
   public abstract PackagingExtension getPackaging();
@@ -167,6 +172,11 @@ public abstract class LwjwaeExtension {
   /** Configures {@link #getMacos()}. */
   public void macos(Action<? super MacOsExtension> action) {
     action.execute(this.getMacos());
+  }
+
+  /** Configures {@link #getFrontend()}. */
+  public void frontend(Action<? super FrontendExtension> action) {
+    action.execute(this.getFrontend());
   }
 
   /** Configures {@link #getPackaging()}. */

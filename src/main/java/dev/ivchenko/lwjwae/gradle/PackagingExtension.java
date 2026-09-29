@@ -1,6 +1,7 @@
 package dev.ivchenko.lwjwae.gradle;
 
 import dev.ivchenko.lwjwae.gradle.linux.AppImageExtension;
+import dev.ivchenko.lwjwae.gradle.linux.ArchExtension;
 import dev.ivchenko.lwjwae.gradle.linux.DebExtension;
 import dev.ivchenko.lwjwae.gradle.macos.DmgExtension;
 import dev.ivchenko.lwjwae.gradle.windows.MsiExtension;
@@ -15,9 +16,9 @@ import org.gradle.api.tasks.Nested;
  *
  * <p>Each format is off until the build script names it, with {@code all()}, with its shortcut such
  * as {@code deb()}, or with its block, and has its own task: {@code packageDeb}, {@code
- * packageAppImage}, {@code packageApp}, {@code packageDmg}, {@code packageMsi}. {@code packageAll}
- * runs the enabled ones that the current operating system can build. Every package lands in {@code
- * build/lwjwae/dist}.
+ * packageArch}, {@code packageAppImage}, {@code packageApp}, {@code packageDmg}, {@code
+ * packageMsi}. {@code packageAll} runs the enabled ones that the current operating system can
+ * build. Every package lands in {@code build/lwjwae/dist}.
  *
  * <pre>{@code
  * lwjwae {
@@ -59,6 +60,10 @@ public abstract class PackagingExtension {
   @Nested
   public abstract DebExtension getDeb();
 
+  /** The Arch Linux package. */
+  @Nested
+  public abstract ArchExtension getArch();
+
   /** The AppImage. */
   @Nested
   public abstract AppImageExtension getAppImage();
@@ -74,6 +79,7 @@ public abstract class PackagingExtension {
   /** Turns on every format; {@code packageAll} then builds the ones that this system can. */
   public void all() {
     this.deb();
+    this.arch();
     this.appImage();
     this.dmg();
     this.msi();
@@ -88,6 +94,17 @@ public abstract class PackagingExtension {
   public void deb(Action<? super DebExtension> action) {
     this.deb();
     action.execute(this.getDeb());
+  }
+
+  /** Turns the Arch Linux package on. */
+  public void arch() {
+    this.getArch().getEnabled().set(true);
+  }
+
+  /** Turns {@link #getArch()} on and configures it; {@code enabled = false} inside turns it off. */
+  public void arch(Action<? super ArchExtension> action) {
+    this.arch();
+    action.execute(this.getArch());
   }
 
   /** Turns the AppImage on. */

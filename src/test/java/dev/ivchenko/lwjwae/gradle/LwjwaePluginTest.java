@@ -256,6 +256,12 @@ class LwjwaePluginTest {
         new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'},
         png,
         "the 256 pixel entry is PNG");
+    // The 16 pixel bitmap: 40 header bytes, 16 rows of 16 BGRA pixels, then 16 mask rows of 4
+    // bytes,
+    // bottom-up. The circle leaves the corners transparent and fills the middle.
+    int mask = ico.getInt(6 + 12) + 40 + 16 * 16 * 4;
+    Assertions.assertEquals((byte) 0x80, (byte) (ico.get(mask + 15 * 4) & 0x80), "corner masked");
+    Assertions.assertEquals(0, ico.get(mask + 7 * 4 + 1) & 0x80, "middle drawn");
   }
 
   @Test

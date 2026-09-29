@@ -1,8 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.linux;
 
-import dev.ivchenko.lwjwae.gradle.util.Icons;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -10,13 +8,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.zip.GZIPOutputStream;
 import lombok.SneakyThrows;
 import org.apache.commons.compress.archivers.ar.ArArchiveEntry;
 import org.apache.commons.compress.archivers.ar.ArArchiveOutputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -43,9 +41,6 @@ import org.gradle.api.tasks.TaskAction;
  */
 @CacheableTask
 public abstract class PackageDeb extends DefaultTask {
-  private static final int EXECUTABLE = 0755;
-  private static final int REGULAR = 0644;
-
   /** The native executable. */
   @InputFile
   @PathSensitive(PathSensitivity.NONE)
@@ -125,51 +120,41 @@ public abstract class PackageDeb extends DefaultTask {
               + " packaging.vendor, to \"Name <email>\"");
     }
     String name = this.getPackageName().get();
-    File executable = this.getExecutable().get().getAsFile();
-    long installedBytes = Files.size(executable.toPath());
-    byte[] desktop =
+    String desktop =
         DesktopEntry.render(
-                this.getDisplayName().get(),
-                this.getSummary().get(),
-                "/usr/bin/" + name,
-                this.getIconName().get(),
-                this.getCategories().get())
-            .getBytes(StandardCharsets.UTF_8);
+            this.getDisplayName().get(),
+            this.getSummary().get(),
+            "/usr/bin/" + name,
+            this.getIconName().get(),
+            this.getCategories().get());
+    List<PayloadFile> files =
+        LinuxPayload.files(
+            this.getExecutable().get().getAsFile().toPath(),
+            name,
+            desktop,
+            this.getIcon().isPresent() ? this.getIcon().get().getAsFile() : null,
+            this.getIconName().get());
+    Instant time = Instant.now();
 
     File output = this.getPackageFile().get().getAsFile();
     Files.createDirectories(output.getParentFile().toPath());
     // The executable runs to tens of megabytes: it streams through a file, not the heap.
     Path data = Files.createTempFile(this.getTemporaryDir().toPath(), "data", ".tar.gz");
     try (TarArchiveOutputStream tar = PackageDeb.tar(Files.newOutputStream(data))) {
-      PackageDeb.directory(tar, "./usr/");
-      PackageDeb.directory(tar, "./usr/bin/");
-      PackageDeb.file(tar, "./usr/bin/" + name, executable.toPath(), EXECUTABLE);
-      PackageDeb.directory(tar, "./usr/share/");
-      PackageDeb.directory(tar, "./usr/share/applications/");
-      PackageDeb.file(tar, "./usr/share/applications/" + name + ".desktop", desktop, REGULAR);
-      installedBytes += desktop.length;
-      if (this.getIcon().isPresent()) {
-        BufferedImage image = Icons.read(this.getIcon().get().getAsFile());
-        PackageDeb.directory(tar, "./usr/share/icons/");
-        PackageDeb.directory(tar, "./usr/share/icons/hicolor/");
-        for (int size : Icons.LINUX_SIZES) {
-          String sized = "./usr/share/icons/hicolor/" + size + "x" + size + "/";
-          byte[] png = Icons.png(Icons.scale(image, size));
-          PackageDeb.directory(tar, sized);
-          PackageDeb.directory(tar, sized + "apps/");
-          PackageDeb.file(tar, sized + "apps/" + this.getIconName().get() + ".png", png, REGULAR);
-          installedBytes += png.length;
-        }
-      }
+      LinuxPayload.write(tar, "./", files, time);
     }
 
     ByteArrayOutputStream control = new ByteArrayOutputStream();
+    long installedKilobytes = (LinuxPayload.size(files) + 1023) / 1024;
     try (TarArchiveOutputStream tar = PackageDeb.tar(control)) {
-      PackageDeb.file(
+      LinuxPayload.write(
           tar,
           "./control",
-          this.control((installedBytes + 1023) / 1024).getBytes(StandardCharsets.UTF_8),
-          REGULAR);
+          PayloadFile.of(
+              "control",
+              LinuxPayload.REGULAR,
+              this.control(installedKilobytes).getBytes(StandardCharsets.UTF_8)),
+          time);
     }
 
     try (ArArchiveOutputStream ar =
@@ -227,39 +212,6 @@ public abstract class PackageDeb extends DefaultTask {
     TarArchiveOutputStream tar = new TarArchiveOutputStream(new GZIPOutputStream(out));
     tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
     return tar;
-  }
-
-  private static void directory(TarArchiveOutputStream tar, String path) throws IOException {
-    TarArchiveEntry entry = new TarArchiveEntry(path);
-    entry.setMode(EXECUTABLE);
-    entry.setUserName("root");
-    entry.setGroupName("root");
-    tar.putArchiveEntry(entry);
-    tar.closeArchiveEntry();
-  }
-
-  private static void file(TarArchiveOutputStream tar, String path, byte[] content, int mode)
-      throws IOException {
-    TarArchiveEntry entry = new TarArchiveEntry(path);
-    entry.setSize(content.length);
-    entry.setMode(mode);
-    entry.setUserName("root");
-    entry.setGroupName("root");
-    tar.putArchiveEntry(entry);
-    tar.write(content);
-    tar.closeArchiveEntry();
-  }
-
-  private static void file(TarArchiveOutputStream tar, String path, Path content, int mode)
-      throws IOException {
-    TarArchiveEntry entry = new TarArchiveEntry(path);
-    entry.setSize(Files.size(content));
-    entry.setMode(mode);
-    entry.setUserName("root");
-    entry.setGroupName("root");
-    tar.putArchiveEntry(entry);
-    Files.copy(content, tar);
-    tar.closeArchiveEntry();
   }
 
   private static void member(ArArchiveOutputStream ar, String name, byte[] content)

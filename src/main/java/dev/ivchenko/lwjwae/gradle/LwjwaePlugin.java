@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle;
 
+import dev.ivchenko.lwjwae.gradle.frontend.FrontendConfiguration;
 import dev.ivchenko.lwjwae.gradle.linux.LinuxConfiguration;
 import dev.ivchenko.lwjwae.gradle.macos.MacOsConfiguration;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
@@ -52,6 +53,7 @@ public class LwjwaePlugin implements Plugin<Project> {
         WindowsConfiguration.configure(project, extension, layout);
     Provider<RegularFile> infoPlist = MacOsConfiguration.configure(project, extension, layout);
     LinuxConfiguration.configure(project, extension, layout);
+    FrontendConfiguration.configure(project, extension, layout);
     NativeImageConfiguration.configure(project, extension, resources, infoPlist);
     LwjwaePlugin.registerPackageAll(project, extension);
   }
@@ -101,6 +103,8 @@ public class LwjwaePlugin implements Plugin<Project> {
               if (Platform.isLinux()) {
                 task.dependsOn(
                     LwjwaePlugin.ifEnabled(packaging.getDeb().getEnabled(), "packageDeb"));
+                task.dependsOn(
+                    LwjwaePlugin.ifEnabled(packaging.getArch().getEnabled(), "packageArch"));
                 task.dependsOn(
                     LwjwaePlugin.ifEnabled(
                         packaging.getAppImage().getEnabled(), "packageAppImage"));
