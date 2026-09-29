@@ -21,6 +21,8 @@ The plugin sets a Java project up as an lwjwae application:
 - **The native image.** The plugin applies the GraalVM Native Build Tools plugin and configures
   `nativeCompile`: `--enable-native-access` for the FFM API, `-Os`, a capped heap, the image name.
   The same `--enable-native-access` goes to `gradle run`.
+- **The page.** A frontend in `frontend/`, such as a Vite project, installed and built with npm
+  into the resources, and served with hot reload for `./gradlew runDev`.
 - **Windows.** A GUI subsystem executable, so a double-click opens the window and no console, with
   an icon rendered from one PNG file and a version block for the properties dialog, compiled by
   `rc.exe` from the Windows SDK.
@@ -73,6 +75,7 @@ Put the icon, one square PNG of 256 pixels or larger, at `src/main/icons/app.png
 
 ```bash
 ./gradlew run             # on the JVM
+./gradlew runDev          # against the development server of frontend/, with hot reload
 ./gradlew nativeCompile   # the executable, with GRAALVM_HOME set
 ./gradlew packageAll      # the packages of this platform, in build/lwjwae/dist
 ```
