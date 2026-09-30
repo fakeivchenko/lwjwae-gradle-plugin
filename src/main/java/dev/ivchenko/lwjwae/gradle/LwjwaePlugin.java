@@ -3,6 +3,7 @@ package dev.ivchenko.lwjwae.gradle;
 import dev.ivchenko.lwjwae.gradle.frontend.FrontendConfiguration;
 import dev.ivchenko.lwjwae.gradle.linux.LinuxConfiguration;
 import dev.ivchenko.lwjwae.gradle.macos.MacOsConfiguration;
+import dev.ivchenko.lwjwae.gradle.update.UpdateConfiguration;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
 import dev.ivchenko.lwjwae.gradle.windows.CompileWindowsResources;
 import dev.ivchenko.lwjwae.gradle.windows.WindowsConfiguration;
@@ -29,6 +30,8 @@ import org.gradle.api.tasks.TaskProvider;
  *   <li>macOS: an embedded {@code Info.plist} with the bundle identifier that the helper processes
  *       of WebKit need, an {@code .app} bundle, and a {@code .dmg}.
  *   <li>Linux: a {@code .deb} package and an AppImage.
+ *   <li>Updates: the manifest URL and the key in the resources, and a signed manifest over the
+ *       packages of a release.
  * </ul>
  *
  * <p>This class only puts the parts together; each platform package configures its own tasks and
@@ -55,6 +58,7 @@ public class LwjwaePlugin implements Plugin<Project> {
     LinuxConfiguration.configure(project, extension, layout);
     FrontendConfiguration.configure(project, extension, layout);
     NativeImageConfiguration.configure(project, extension, resources, infoPlist);
+    UpdateConfiguration.configure(project, extension, layout);
     LwjwaePlugin.registerPackageAll(project, extension);
   }
 

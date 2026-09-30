@@ -2,6 +2,7 @@ package dev.ivchenko.lwjwae.gradle;
 
 import dev.ivchenko.lwjwae.gradle.frontend.FrontendExtension;
 import dev.ivchenko.lwjwae.gradle.macos.MacOsExtension;
+import dev.ivchenko.lwjwae.gradle.update.UpdatesExtension;
 import dev.ivchenko.lwjwae.gradle.windows.WindowsExtension;
 import org.gradle.api.Action;
 import org.gradle.api.file.RegularFileProperty;
@@ -133,6 +134,10 @@ public abstract class LwjwaeExtension {
   @Nested
   public abstract PackagingExtension getPackaging();
 
+  /** Where the application finds its updates. */
+  @Nested
+  public abstract UpdatesExtension getUpdates();
+
   /** Brings the Jackson codec, {@link Codec#JACKSON}. */
   public void jackson() {
     this.getCodec().set(Codec.JACKSON);
@@ -177,6 +182,11 @@ public abstract class LwjwaeExtension {
   /** Configures {@link #getFrontend()}. */
   public void frontend(Action<? super FrontendExtension> action) {
     action.execute(this.getFrontend());
+  }
+
+  /** Configures {@link #getUpdates()}. */
+  public void updates(Action<? super UpdatesExtension> action) {
+    action.execute(this.getUpdates());
   }
 
   /** Configures {@link #getPackaging()}. */
