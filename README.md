@@ -30,6 +30,8 @@ The plugin sets a Java project up as an lwjwae application:
   helper processes of WebKit need, and the name that the menu bar and the Dock show.
 - **Packages.** A `.deb`, an Arch Linux package, and an AppImage on Linux, an `.app` bundle and a `.dmg` on macOS, an
   `.msi` installer on Windows, each from one task, with the icon and the metadata above.
+- **Links and files.** `urlScheme("notes")` and `fileType("note")` register a scheme of links and a
+  type of files in every package, and the application hears of each through `Application.onOpen`.
 - **Updates.** With `updates { manifestUrl; publicKey }`, the application finds its new versions
   through `application.updater()`. `generateUpdateKeys` makes the Ed25519 keys once,
   `packageUpdate` puts the package of each platform into the release directory, and
