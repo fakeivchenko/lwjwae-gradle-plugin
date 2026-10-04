@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.linux;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.LinuxBackend;
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
 import dev.ivchenko.lwjwae.gradle.LwjwaeLayout;
@@ -79,6 +80,7 @@ public class LinuxConfiguration {
               task.getPriority().set(deb.getPriority());
               task.getDepends().set(deb.getDepends());
               task.getCategories().set(packaging.getCategories());
+              Associations.wire(task, extension);
               task.getPackageFile()
                   .set(
                       layout.distributionFile(
@@ -123,6 +125,7 @@ public class LinuxConfiguration {
               task.getDepends().set(arch.getDepends());
               task.getLicenses().set(arch.getLicenses());
               task.getCategories().set(packaging.getCategories());
+              Associations.wire(task, extension);
               task.getPackageFile()
                   .set(
                       layout.distributionFile(
@@ -161,6 +164,7 @@ public class LinuxConfiguration {
               task.getImageName().set(extension.getImageName());
               task.getSummary().set(packaging.getDescription());
               task.getCategories().set(packaging.getCategories());
+              Associations.wire(task, extension);
               task.getTool().set(appImage.getTool());
               task.getCacheDirectory().set(layout.toolCache());
               task.getAppDir().set(layout.directory("appimage/AppDir"));

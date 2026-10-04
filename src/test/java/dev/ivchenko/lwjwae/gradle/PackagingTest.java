@@ -135,6 +135,52 @@ class PackagingTest {
   }
 
   @Test
+  @EnabledOnOs(OS.LINUX)
+  void debRegistersTheSchemesAndTheTypesOfFilesOfTheApplication() throws IOException {
+    this.rewriteBuild(
+        "packaging.homepage = \"https://example.com\"",
+        """
+        packaging.homepage = "https://example.com"
+            urlScheme("demo")
+            fileType("demo")
+            fileType(".MD", "text/markdown", "Markdown & notes")
+        """);
+    this.run("packageDeb");
+    Path deb =
+        this.project.resolve(
+            "build/lwjwae/dist/demo-app_1.2.3_" + PackageDeb.architecture() + ".deb");
+    byte[] data = null;
+    try (ArArchiveInputStream ar = new ArArchiveInputStream(Files.newInputStream(deb))) {
+      ArArchiveEntry entry;
+      while ((entry = ar.getNextEntry()) != null) {
+        if (entry.getName().equals("data.tar.gz")) {
+          data = ar.readAllBytes();
+        }
+      }
+    }
+    String desktop =
+        new String(read(data, "./usr/share/applications/demo-app.desktop"), StandardCharsets.UTF_8);
+    Assertions.assertTrue(desktop.contains("Exec=/usr/bin/demo-app %U\n"), desktop);
+    Assertions.assertTrue(
+        desktop.contains(
+            "MimeType=x-scheme-handler/demo;application/x-demo-app-demo;text/markdown;\n"),
+        desktop);
+    String mime =
+        new String(read(data, "./usr/share/mime/packages/demo-app.xml"), StandardCharsets.UTF_8);
+    Assertions.assertTrue(
+        mime.contains(
+            """
+              <mime-type type="application/x-demo-app-demo">
+                <comment>Demo App document</comment>
+                <glob pattern="*.demo"/>
+              </mime-type>
+            """),
+        mime);
+    Assertions.assertTrue(mime.contains("<comment>Markdown &amp; notes</comment>"), mime);
+    Assertions.assertTrue(mime.contains("<glob pattern=\"*.md\"/>"), mime);
+  }
+
+  @Test
   void appBundleHasTheLayoutFinderExpects() throws IOException {
     this.run("packageApp");
     Path app = this.project.resolve("build/lwjwae/dist/Demo App.app/Contents");

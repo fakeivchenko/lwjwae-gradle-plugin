@@ -19,7 +19,9 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 /**
  * What every Linux package installs, whatever its format: the executable in {@code /usr/bin}, the
  * desktop entry in {@code /usr/share/applications}, and the icon in the {@code hicolor} theme at
- * every common size, so the application shows up in the menu with its icon once installed.
+ * every common size, so the application shows up in the menu with its icon once installed. The
+ * types of files that it opens go to {@code /usr/share/mime/packages}, which the triggers of {@code
+ * shared-mime-info} and the hooks of pacman compile into the database of the desktop.
  */
 @UtilityClass
 class LinuxPayload {
@@ -34,9 +36,16 @@ class LinuxPayload {
    * @param desktop The desktop entry.
    * @param icon The icon, or {@code null} for none.
    * @param iconName The name of the icon in the theme.
+   * @param sharedMimeInfo The types of files that the application opens, as a shared-mime-info
+   *     package, or {@code null} for none.
    */
   List<PayloadFile> files(
-      Path executable, String name, String desktop, File icon, String iconName) {
+      Path executable,
+      String name,
+      String desktop,
+      File icon,
+      String iconName,
+      String sharedMimeInfo) {
     List<PayloadFile> files = new ArrayList<>();
     files.add(PayloadFile.of("usr/bin/" + name, EXECUTABLE, executable));
     files.add(
@@ -44,6 +53,13 @@ class LinuxPayload {
             "usr/share/applications/" + name + ".desktop",
             REGULAR,
             desktop.getBytes(StandardCharsets.UTF_8)));
+    if (sharedMimeInfo != null) {
+      files.add(
+          PayloadFile.of(
+              "usr/share/mime/packages/" + name + ".xml",
+              REGULAR,
+              sharedMimeInfo.getBytes(StandardCharsets.UTF_8)));
+    }
     if (icon != null) {
       BufferedImage image = Icons.read(icon);
       for (int size : Icons.LINUX_SIZES) {

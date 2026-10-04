@@ -338,6 +338,65 @@ class LwjwaePluginTest {
   }
 
   @Test
+  void infoPlistRegistersTheSchemesAndTheTypesOfFiles() throws IOException {
+    this.writeBuild(
+        """
+        group = "com.example"
+        lwjwae {
+            displayName = "Demo"
+            urlScheme("demo", "demo-dev")
+            fileType("note", "application/x-demo-note", "Note")
+        }
+        """);
+    this.run("generateInfoPlist");
+    String plist = Files.readString(this.project.resolve("build/lwjwae/macos/Info.plist"));
+    Assertions.assertTrue(
+        plist.contains(
+            """
+                <key>CFBundleURLSchemes</key>
+                        <array>
+                            <string>demo</string>
+                            <string>demo-dev</string>
+                        </array>
+            """
+                .strip()),
+        plist);
+    Assertions.assertTrue(
+        plist.contains(
+            """
+                        <key>CFBundleTypeName</key>
+                        <string>Note</string>
+            """
+                .strip()),
+        plist);
+    Assertions.assertTrue(plist.contains("<string>note</string>"), plist);
+    Assertions.assertTrue(plist.contains("<string>application/x-demo-note</string>"), plist);
+    Assertions.assertTrue(plist.endsWith("    </array>\n</dict>\n</plist>\n"), plist);
+  }
+
+  @Test
+  void infoPlistWithoutSchemesOrTypesHasNeither() throws IOException {
+    this.writeBuild("group = \"com.example\"\n");
+    this.run("generateInfoPlist");
+    String plist = Files.readString(this.project.resolve("build/lwjwae/macos/Info.plist"));
+    Assertions.assertFalse(plist.contains("CFBundleURLTypes"), plist);
+    Assertions.assertFalse(plist.contains("CFBundleDocumentTypes"), plist);
+    Assertions.assertTrue(plist.contains("<true/>\n</dict>\n</plist>\n"), plist);
+  }
+
+  @Test
+  void schemesAndTypesOfFilesAreChecked() {
+    Assertions.assertEquals("md", new FileAssociation(".MD", null, null).extension());
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new FileAssociation("tar.gz", null, null));
+    Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new FileAssociation("note", "not a type", null));
+    Assertions.assertEquals(
+        new FileAssociation("note", "application/x-my-app-note", "My App document"),
+        new FileAssociation("note", null, null).resolve("My App", "My App"));
+  }
+
+  @Test
   void versionNumbersFitTheVersionBlock() {
     Assertions.assertEquals(
         "1,2,3,0", GenerateWindowsResourceScript.numericVersion("1.2.3-SNAPSHOT"));

@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.macos;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
 import dev.ivchenko.lwjwae.gradle.LwjwaeLayout;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
@@ -38,6 +39,7 @@ public class MacOsConfiguration {
                   task.getBundleIdentifier().set(macos.getBundleIdentifier());
                   task.getBundleName().set(macos.getBundleName());
                   task.getVersion().set(macos.getVersion());
+                  Associations.wire(task, extension);
                   task.getInfoPlist().set(layout.file("macos/Info.plist"));
                 });
     Provider<RegularFile> infoPlist =

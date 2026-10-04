@@ -4,6 +4,7 @@ import dev.ivchenko.lwjwae.gradle.frontend.FrontendExtension;
 import dev.ivchenko.lwjwae.gradle.macos.MacOsExtension;
 import dev.ivchenko.lwjwae.gradle.update.UpdatesExtension;
 import dev.ivchenko.lwjwae.gradle.windows.WindowsExtension;
+import java.util.List;
 import org.gradle.api.Action;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -118,6 +119,19 @@ public abstract class LwjwaeExtension {
   /** More {@code native-image} arguments, appended after the ones of the plugin. */
   public abstract ListProperty<String> getBuildArgs();
 
+  /**
+   * The schemes of links that the application opens, such as {@code notes} for {@code
+   * notes://today}: every package registers them, and the application hears of a link through
+   * {@code Application.onOpen}. Empty by default.
+   */
+  public abstract ListProperty<String> getUrlSchemes();
+
+  /**
+   * The types of files that the application opens: every package registers them, and the
+   * application hears of a file through {@code Application.onOpen}. Empty by default.
+   */
+  public abstract ListProperty<FileAssociation> getFileTypes();
+
   /** The Windows executable: subsystem, icon, version block. */
   @Nested
   public abstract WindowsExtension getWindows();
@@ -167,6 +181,45 @@ public abstract class LwjwaeExtension {
     this.jsonb();
     this.getJsonbProvider().set(provider.substring(0, versionAt));
     this.getJsonbProviderVersion().set(provider.substring(versionAt + 1));
+  }
+
+  /**
+   * Adds schemes of links to {@link #getUrlSchemes()}, such as {@code urlScheme("notes")}.
+   *
+   * @throws IllegalArgumentException If a scheme isn't a lowercase letter followed by lowercase
+   *     letters, digits, {@code +}, {@code -}, or {@code .}, or is one that the system owns.
+   */
+  public void urlScheme(String... schemes) {
+    for (String scheme : schemes) {
+      if (!scheme.matches("[a-z][a-z0-9+.-]*")) {
+        throw new IllegalArgumentException(
+            "A scheme is a lowercase letter, then letters, digits, +, -, or .: " + scheme);
+      }
+      if (List.of("http", "https", "file", "mailto", "ftp", "data", "javascript")
+          .contains(scheme)) {
+        throw new IllegalArgumentException("The scheme " + scheme + " belongs to the system");
+      }
+      this.getUrlSchemes().add(scheme);
+    }
+  }
+
+  /**
+   * Adds a type of file to {@link #getFileTypes()} by its extension, such as {@code
+   * fileType("note")}, with the media type {@code application/x-IMAGE-EXTENSION} and the display
+   * name followed by {@code document} as its description.
+   */
+  public void fileType(String extension) {
+    this.getFileTypes().add(new FileAssociation(extension, null, null));
+  }
+
+  /** The same as {@link #fileType(String)} with a media type, such as {@code text/markdown}. */
+  public void fileType(String extension, String mimeType) {
+    this.getFileTypes().add(new FileAssociation(extension, mimeType, null));
+  }
+
+  /** The same as {@link #fileType(String, String)} with what the file manager calls the type. */
+  public void fileType(String extension, String mimeType, String description) {
+    this.getFileTypes().add(new FileAssociation(extension, mimeType, description));
   }
 
   /** Configures {@link #getWindows()}. */

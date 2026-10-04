@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.windows;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
 import dev.ivchenko.lwjwae.gradle.LwjwaeLayout;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
@@ -143,6 +144,7 @@ public class WindowsConfiguration {
               task.getPerUser().set(msi.getPerUser());
               task.getExecutableName().set(extension.getImageName().map(name -> name + ".exe"));
               task.getWixVersion().set(msi.getWixVersion());
+              Associations.wire(task, extension);
               task.getTool().set(msi.getTool());
               task.getCacheDirectory().set(layout.toolCache());
               task.getWorkDirectory().set(layout.directory("msi"));
