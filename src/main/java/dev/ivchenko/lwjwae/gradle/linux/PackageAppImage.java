@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.linux;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.util.Downloads;
 import dev.ivchenko.lwjwae.gradle.util.Icons;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
@@ -41,7 +42,7 @@ import org.gradle.work.DisableCachingByDefault;
  * which containers and CI runners usually lack.
  */
 @DisableCachingByDefault(because = "Packs an executable that is already a build output")
-public abstract class PackageAppImage extends DefaultTask {
+public abstract class PackageAppImage extends DefaultTask implements Associations {
   /** The release of {@code appimagetool} that the plugin downloads. */
   public static final String TOOL_VERSION = "1.9.1";
 
@@ -156,8 +157,14 @@ public abstract class PackageAppImage extends DefaultTask {
             this.getSummary().get(),
             name,
             this.getIconName().get(),
-            this.getCategories().get()),
+            this.getCategories().get(),
+            DesktopEntry.mimeTypes(this.getUrlSchemes().get(), this.getFileTypes().get())),
         StandardCharsets.UTF_8);
+    String sharedMimeInfo = DesktopEntry.sharedMimeInfo(this.getFileTypes().get());
+    if (sharedMimeInfo != null) {
+      Path packages = Files.createDirectories(appDir.resolve("usr/share/mime/packages"));
+      Files.writeString(packages.resolve(name + ".xml"), sharedMimeInfo, StandardCharsets.UTF_8);
+    }
     // appimagetool refuses an AppDir without the icon that the desktop entry names.
     byte[] png =
         Icons.png(

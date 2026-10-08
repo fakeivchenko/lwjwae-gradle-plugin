@@ -19,10 +19,12 @@ import org.gradle.work.DisableCachingByDefault;
 
 /**
  * Wraps the {@code .app} bundle into a compressed disk image with {@code hdiutil}, the way most
- * macOS applications are downloaded. macOS only.
+ * macOS applications are downloaded. With a signing identity, {@code codesign} signs the image too,
+ * and with notarization set, the notary service checks it and its ticket is stapled to it, so that
+ * Gatekeeper opens it without a network. macOS only.
  */
 @DisableCachingByDefault(because = "Runs hdiutil over a build output")
-public abstract class PackageDmg extends DefaultTask {
+public abstract class PackageDmg extends DefaultTask implements MacSigning {
   /** The bundle to put on the image. */
   @InputDirectory
   @PathSensitive(PathSensitivity.NONE)
@@ -62,5 +64,16 @@ public abstract class PackageDmg extends DefaultTask {
                   "UDZO",
                   output.getAbsolutePath());
             });
+    if (!this.getSigningIdentity().isPresent()) {
+      return;
+    }
+    // A disk image is signed without the hardened runtime, which only executables take.
+    Notarytool.codesign(
+        this.getExecOperations(),
+        Notarytool.codesignArguments(this.getSigningIdentity().get(), false, null, output));
+    NotaryCredentials notarization = this.notaryCredentials();
+    if (notarization.isSet()) {
+      Notarytool.notarizeAndStaple(this.getExecOperations(), notarization, output, output);
+    }
   }
 }

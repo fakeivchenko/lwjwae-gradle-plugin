@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.macos;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
 import dev.ivchenko.lwjwae.gradle.LwjwaeLayout;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
@@ -38,6 +39,7 @@ public class MacOsConfiguration {
                   task.getBundleIdentifier().set(macos.getBundleIdentifier());
                   task.getBundleName().set(macos.getBundleName());
                   task.getVersion().set(macos.getVersion());
+                  Associations.wire(task, extension);
                   task.getInfoPlist().set(layout.file("macos/Info.plist"));
                 });
     Provider<RegularFile> infoPlist =
@@ -57,6 +59,15 @@ public class MacOsConfiguration {
                         project.getGroup().toString(), project.getName())));
     macos.getBundleName().convention(extension.getDisplayName());
     macos.getVersion().convention(layout.projectVersion());
+    macos.getHardenedRuntime().convention(true);
+    macos
+        .getNotarization()
+        .getPassword()
+        .convention(
+            project
+                .getProviders()
+                .gradleProperty("lwjwae.notaryPassword")
+                .orElse(project.getProviders().environmentVariable("LWJWAE_NOTARY_PASSWORD")));
 
     DmgExtension dmg = extension.getPackaging().getDmg();
     dmg.getEnabled().convention(false);
@@ -93,7 +104,7 @@ public class MacOsConfiguration {
                   task.getInfoPlist().set(infoPlist);
                   task.getIcon().set(extension.getIcon());
                   task.getImageName().set(extension.getImageName());
-                  task.getSigningIdentity().set(macos.getSigningIdentity());
+                  MacSigning.wire(task, macos);
                   task.getBundle()
                       .set(
                           layout.distributionDirectory(
@@ -112,6 +123,7 @@ public class MacOsConfiguration {
               task.onlyIf(_ -> Platform.isMacOs());
               task.getBundle().set(app.flatMap(PackageMacApp::getBundle));
               task.getVolumeName().set(dmg.getVolumeName());
+              MacSigning.wire(task, macos);
               task.getDiskImage()
                   .set(
                       layout.distributionFile(

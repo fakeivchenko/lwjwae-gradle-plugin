@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.linux;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -43,7 +44,7 @@ import org.gradle.api.tasks.TaskAction;
  * pacman reads as it reads the zstd of {@code makepkg}, and which needs no native code to write.
  */
 @CacheableTask
-public abstract class PackageArch extends DefaultTask {
+public abstract class PackageArch extends DefaultTask implements Associations {
   /** The native executable. */
   @InputFile
   @PathSensitive(PathSensitivity.NONE)
@@ -119,14 +120,16 @@ public abstract class PackageArch extends DefaultTask {
             this.getSummary().get(),
             "/usr/bin/" + name,
             this.getIconName().get(),
-            this.getCategories().get());
+            this.getCategories().get(),
+            DesktopEntry.mimeTypes(this.getUrlSchemes().get(), this.getFileTypes().get()));
     List<PayloadFile> files =
         LinuxPayload.files(
             this.getExecutable().get().getAsFile().toPath(),
             name,
             desktop,
             this.getIcon().isPresent() ? this.getIcon().get().getAsFile() : null,
-            this.getIconName().get());
+            this.getIconName().get(),
+            DesktopEntry.sharedMimeInfo(this.getFileTypes().get()));
     // Whole seconds: .PKGINFO and .MTREE count in them, and the tar entries have to agree.
     Instant time = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     PayloadFile packageInfo =

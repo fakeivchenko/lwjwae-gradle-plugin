@@ -30,6 +30,19 @@ The plugin sets a Java project up as an lwjwae application:
   helper processes of WebKit need, and the name that the menu bar and the Dock show.
 - **Packages.** A `.deb`, an Arch Linux package, and an AppImage on Linux, an `.app` bundle and a `.dmg` on macOS, an
   `.msi` installer on Windows, each from one task, with the icon and the metadata above.
+- **Signing.** With `windows { signing { certificateThumbprint } }`, or a `.pfx` file and its
+  password, `signtool` signs the executable and the `.msi`, so Windows names the publisher. With
+  `macos { signingIdentity }`, `codesign` signs the `.app` and the `.dmg` with the hardened runtime,
+  and with `macos { notarization { keychainProfile } }`, or an API key or an Apple ID, the notary
+  service of Apple checks both and its ticket is stapled to them, so Gatekeeper opens them without
+  a warning. Passwords come from `LWJWAE_WINDOWS_CERTIFICATE_PASSWORD` and `LWJWAE_NOTARY_PASSWORD`.
+- **Links and files.** `urlScheme("notes")` and `fileType("note")` register a scheme of links and a
+  type of files in every package, and the application hears of each through `Application.onOpen`.
+- **Updates.** With `updates { manifestUrl; publicKey }`, the application finds its new versions
+  through `application.updater()`. `generateUpdateKeys` makes the Ed25519 keys once,
+  `packageUpdate` puts the package of each platform into the release directory, and
+  `updateManifest` writes the manifest over them and signs it with the private key from
+  `LWJWAE_UPDATE_PRIVATE_KEY`. Upload the directory to the manifest URL and the release is out.
 
 ## Usage
 

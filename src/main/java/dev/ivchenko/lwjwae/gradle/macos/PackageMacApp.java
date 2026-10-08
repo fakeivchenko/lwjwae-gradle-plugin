@@ -2,6 +2,7 @@ package dev.ivchenko.lwjwae.gradle.macos;
 
 import dev.ivchenko.lwjwae.gradle.util.Icons;
 import dev.ivchenko.lwjwae.gradle.util.Xml;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,11 +33,13 @@ import org.gradle.work.DisableCachingByDefault;
  *
  * <p>The bundle is what Finder, the Dock, and Launchpad know how to show and launch; the bare
  * executable works too, but without an icon and with a Terminal window. When a signing identity is
- * set, {@code codesign} signs the bundle; the task can lay it out on any platform, but signs only
- * on macOS.
+ * set, {@code codesign} signs the bundle with a secure time stamp and the hardened runtime, and
+ * with notarization set, the notary service of Apple checks it and its ticket is stapled to it,
+ * which the self-updater needs, since it downloads the bundle as it is. The task can lay the bundle
+ * out on any platform, but signs only on macOS.
  */
 @DisableCachingByDefault(because = "Packs an executable that is already a build output")
-public abstract class PackageMacApp extends DefaultTask {
+public abstract class PackageMacApp extends DefaultTask implements MacSigning {
   /** The native executable. */
   @InputFile
   @PathSensitive(PathSensitivity.NONE)
@@ -56,11 +59,6 @@ public abstract class PackageMacApp extends DefaultTask {
   /** The name of the executable inside the bundle. */
   @Input
   public abstract Property<String> getImageName();
-
-  /** The {@code codesign} identity, or nothing for an unsigned bundle. */
-  @Input
-  @Optional
-  public abstract Property<String> getSigningIdentity();
 
   /** The {@code .app} directory to write. */
   @OutputDirectory
@@ -103,18 +101,27 @@ public abstract class PackageMacApp extends DefaultTask {
     }
     Files.writeString(contents.resolve("Info.plist"), plist, StandardCharsets.UTF_8);
 
-    if (this.getSigningIdentity().isPresent()) {
+    if (!this.getSigningIdentity().isPresent()) {
+      return;
+    }
+    Notarytool.codesign(
+        this.getExecOperations(),
+        Notarytool.codesignArguments(
+            this.getSigningIdentity().get(),
+            this.getHardenedRuntime().get(),
+            this.getEntitlements().isPresent() ? this.getEntitlements().get().getAsFile() : null,
+            bundle.toFile()));
+    NotaryCredentials notarization = this.notaryCredentials();
+    if (notarization.isSet()) {
+      // The notary service takes a bundle as a ZIP file; the ticket is stapled to the bundle.
+      File zip = new File(this.getTemporaryDir(), "notarize.zip");
       this.getExecOperations()
           .exec(
               spec -> {
-                spec.setExecutable("codesign");
-                spec.args(
-                    "--force",
-                    "--deep",
-                    "--sign",
-                    this.getSigningIdentity().get(),
-                    bundle.toString());
+                spec.setExecutable("ditto");
+                spec.args("-c", "-k", "--keepParent", bundle.toString(), zip.getAbsolutePath());
               });
+      Notarytool.notarizeAndStaple(this.getExecOperations(), notarization, zip, bundle.toFile());
     }
   }
 

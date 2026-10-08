@@ -10,14 +10,28 @@ class DesktopEntryTest {
   void escapesStringValues() {
     String entry =
         DesktopEntry.render(
-            "Demo\nApp", "Back\\slash\tand tab", "demo", "demo", List.of("Utility"));
+            "Demo\nApp", "Back\\slash\tand tab", "demo", "demo", List.of("Utility"), List.of());
     Assertions.assertTrue(entry.contains("Name=Demo\\nApp\n"), entry);
     Assertions.assertTrue(entry.contains("Comment=Back\\\\slash\\tand tab\n"), entry);
   }
 
   @Test
   void leavesOutCommentThatRepeatsTheName() {
-    String entry = DesktopEntry.render("Demo", "Demo", "demo", "demo", List.of("Utility"));
+    String entry =
+        DesktopEntry.render("Demo", "Demo", "demo", "demo", List.of("Utility"), List.of());
     Assertions.assertFalse(entry.contains("Comment="), entry);
+  }
+
+  @Test
+  void opensWhatTheApplicationRegistersThroughItsArguments() {
+    String entry =
+        DesktopEntry.render(
+            "Demo", "", "/usr/bin/demo", "demo", List.of("Utility"), List.of("text/markdown"));
+    Assertions.assertTrue(entry.contains("Exec=/usr/bin/demo %U\n"), entry);
+    Assertions.assertTrue(entry.endsWith("Categories=Utility;\nMimeType=text/markdown;\n"), entry);
+    String plain = DesktopEntry.render("Demo", "", "demo", "demo", List.of("Utility"), List.of());
+    Assertions.assertTrue(
+        plain.endsWith("Exec=demo\nIcon=demo\nTerminal=false\nCategories=Utility;\n"), plain);
+    Assertions.assertNull(DesktopEntry.sharedMimeInfo(List.of()));
   }
 }

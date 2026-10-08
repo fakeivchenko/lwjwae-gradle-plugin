@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.linux;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
 import dev.ivchenko.lwjwae.gradle.util.Platform;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -40,7 +41,7 @@ import org.gradle.api.tasks.TaskAction;
  * the menu with its icon right after {@code dpkg -i}.
  */
 @CacheableTask
-public abstract class PackageDeb extends DefaultTask {
+public abstract class PackageDeb extends DefaultTask implements Associations {
   /** The native executable. */
   @InputFile
   @PathSensitive(PathSensitivity.NONE)
@@ -126,14 +127,16 @@ public abstract class PackageDeb extends DefaultTask {
             this.getSummary().get(),
             "/usr/bin/" + name,
             this.getIconName().get(),
-            this.getCategories().get());
+            this.getCategories().get(),
+            DesktopEntry.mimeTypes(this.getUrlSchemes().get(), this.getFileTypes().get()));
     List<PayloadFile> files =
         LinuxPayload.files(
             this.getExecutable().get().getAsFile().toPath(),
             name,
             desktop,
             this.getIcon().isPresent() ? this.getIcon().get().getAsFile() : null,
-            this.getIconName().get());
+            this.getIconName().get(),
+            DesktopEntry.sharedMimeInfo(this.getFileTypes().get()));
     Instant time = Instant.now();
 
     File output = this.getPackageFile().get().getAsFile();

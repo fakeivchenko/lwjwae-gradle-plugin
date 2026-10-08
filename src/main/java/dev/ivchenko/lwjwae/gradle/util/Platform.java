@@ -32,6 +32,16 @@ public class Platform {
     return arch.contains("aarch64") || arch.contains("arm64");
   }
 
+  /**
+   * The key of this platform in a manifest of updates: {@code windows}, {@code macos}, or {@code
+   * linux}, a dash, and {@code x64} or {@code arm64}, as {@code UpdatePlatform} of the library has
+   * it.
+   */
+  public String updateKey() {
+    String os = Platform.isWindows() ? "windows" : Platform.isMacOs() ? "macos" : "linux";
+    return os + "-" + (Platform.isArm64() ? "arm64" : "x64");
+  }
+
   /** The suffix of an executable: {@code .exe} on Windows, nothing elsewhere. */
   public String executableSuffix() {
     return Platform.isWindows() ? ".exe" : "";

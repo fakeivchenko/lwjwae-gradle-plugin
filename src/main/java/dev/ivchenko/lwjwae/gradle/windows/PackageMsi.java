@@ -1,5 +1,7 @@
 package dev.ivchenko.lwjwae.gradle.windows;
 
+import dev.ivchenko.lwjwae.gradle.Associations;
+import dev.ivchenko.lwjwae.gradle.FileAssociation;
 import dev.ivchenko.lwjwae.gradle.util.Executables;
 import dev.ivchenko.lwjwae.gradle.util.Xml;
 import java.io.File;
@@ -33,10 +35,16 @@ import org.gradle.work.DisableCachingByDefault;
  * shortcut, the icon for Settings, and a {@code MajorUpgrade} so that a newer installer replaces
  * the older installation. Per-user installs go under {@code %LOCALAPPDATA%\Programs} without
  * elevation, and keep their key path in {@code HKCU}, as Windows Installer requires for files in a
- * user profile. {@code wix build} turns the source into the {@code .msi}. Windows only.
+ * user profile. {@code wix build} turns the source into the {@code .msi}, which {@code signtool}
+ * signs when a certificate is set. Windows only.
+ *
+ * <p>A scheme of links is a key of {@code HKCR} with {@code URL Protocol}, and a type of file a
+ * {@code ProgId} with its extension, both of which open the executable with the link or the file as
+ * {@code "%1"}. Windows Installer writes {@code HKCR} to {@code HKCU\Software\Classes} for a
+ * per-user install, so neither needs elevation, and removes both with the application.
  */
 @DisableCachingByDefault(because = "Runs the WiX toolset over a build output")
-public abstract class PackageMsi extends DefaultTask {
+public abstract class PackageMsi extends DefaultTask implements Associations {
   /** The WiX release that the plugin installs when none is on the {@code PATH}. */
   public static final String WIX_VERSION = "6.0.2";
 
@@ -93,6 +101,26 @@ public abstract class PackageMsi extends DefaultTask {
   @Internal
   public abstract DirectoryProperty getWorkDirectory();
 
+  /** The certificate that signs the installer as a {@code .pfx} file, or nothing. */
+  @InputFile
+  @Optional
+  @PathSensitive(PathSensitivity.NONE)
+  public abstract RegularFileProperty getCertificateFile();
+
+  /** The password of the certificate file, kept out of the inputs of the task. */
+  @Internal
+  public abstract Property<String> getCertificatePassword();
+
+  /** The thumbprint of a certificate of the store that signs the installer, or nothing. */
+  @Input
+  @Optional
+  public abstract Property<String> getCertificateThumbprint();
+
+  /** The time stamp server of the signature. */
+  @Input
+  @Optional
+  public abstract Property<String> getTimestampUrl();
+
   /** The installer to write. */
   @OutputFile
   public abstract RegularFileProperty getInstaller();
@@ -131,6 +159,19 @@ public abstract class PackageMsi extends DefaultTask {
                   source.toString());
               spec.setWorkingDir(work.toFile());
             });
+    if (this.getCertificateFile().isPresent() || this.getCertificateThumbprint().isPresent()) {
+      Signtool.sign(
+          this.getExecOperations(),
+          Signtool.arguments(
+              this.getCertificateFile().isPresent()
+                  ? this.getCertificateFile().get().getAsFile()
+                  : null,
+              this.getCertificatePassword().getOrNull(),
+              this.getCertificateThumbprint().getOrNull(),
+              this.getTimestampUrl().getOrElse(WindowsSigningExtension.DEFAULT_TIMESTAMP_URL),
+              this.getProductName().get(),
+              output));
+    }
   }
 
   /** Returns the WiX source of the installer. */
@@ -170,14 +211,14 @@ public abstract class PackageMsi extends DefaultTask {
         perUser
             ? """
                     <RegistryValue Root="HKCU" Key="Software\\%s\\%s" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
-                    <File Source="%s" />
+                    <File Id="ExecutableFile" Source="%s" />
             """
                 .formatted(
                     PackageMsi.escape(this.getManufacturer().get()),
                     product,
                     PackageMsi.escape(this.getExecutable().get().getAsFile().getAbsolutePath()))
             : """
-                    <File Source="%s" KeyPath="yes" />
+                    <File Id="ExecutableFile" Source="%s" KeyPath="yes" />
             """
                 .formatted(
                     PackageMsi.escape(this.getExecutable().get().getAsFile().getAbsolutePath()));
@@ -195,6 +236,7 @@ public abstract class PackageMsi extends DefaultTask {
           <Component Id="Executable" Guid="%s">
     %s
             <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="%s" WorkingDirectory="INSTALLFOLDER" Target="[INSTALLFOLDER]%s"%s />
+    %s
             <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
           </Component>
         </ComponentGroup>
@@ -218,7 +260,48 @@ public abstract class PackageMsi extends DefaultTask {
             product,
             executable,
             iconAttribute,
+            this.associations(executable),
             product);
+  }
+
+  /**
+   * The registry keys of the schemes of links and the {@code ProgId}s of the types of files, which
+   * open {@code executable} in the install folder with the link or the file.
+   */
+  String associations(String executable) {
+    String command = PackageMsi.escape("\"[INSTALLFOLDER]" + executable + "\" \"%1\"");
+    String icon = PackageMsi.escape("\"[INSTALLFOLDER]" + executable + "\",0");
+    StringBuilder entries = new StringBuilder();
+    for (String scheme : this.getUrlSchemes().get()) {
+      entries.append(
+          """
+                  <RegistryKey Root="HKCR" Key="%s">
+                    <RegistryValue Type="string" Value="URL:%s" />
+                    <RegistryValue Name="URL Protocol" Type="string" Value="" />
+                    <RegistryValue Key="DefaultIcon" Type="string" Value="%s" />
+                    <RegistryValue Key="shell\\open\\command" Type="string" Value="%s" />
+                  </RegistryKey>
+          """
+              .formatted(scheme, PackageMsi.escape(this.getProductName().get()), icon, command));
+    }
+    String progIdBase = this.getProductName().get().replaceAll("[^A-Za-z0-9]", "");
+    for (FileAssociation type : this.getFileTypes().get()) {
+      entries.append(
+          """
+                  <ProgId Id="%s.%s" Description="%s" Icon="ExecutableFile" IconIndex="0" Advertise="no">
+                    <Extension Id="%s" ContentType="%s">
+                      <Verb Id="open" TargetFile="ExecutableFile" Argument="&quot;%%1&quot;" />
+                    </Extension>
+                  </ProgId>
+          """
+              .formatted(
+                  progIdBase.isEmpty() ? "Application" : progIdBase,
+                  type.extension(),
+                  PackageMsi.escape(type.description()),
+                  type.extension(),
+                  type.mimeType()));
+    }
+    return entries.toString();
   }
 
   /**
