@@ -1,9 +1,11 @@
 package dev.ivchenko.lwjwae.gradle.windows;
 
 import dev.ivchenko.lwjwae.gradle.LwjwaeExtension;
+import org.gradle.api.Action;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Nested;
 
 /**
  * What a Windows executable carries besides its code: the subsystem it is linked for, and the icon
@@ -52,4 +54,13 @@ public abstract class WindowsExtension {
 
   /** A complete {@code .rc} script to compile instead of the generated one. */
   public abstract RegularFileProperty getResourceScript();
+
+  /** The certificate that signs the executable and the installer. Off by default. */
+  @Nested
+  public abstract WindowsSigningExtension getSigning();
+
+  /** Configures {@link #getSigning()}. */
+  public void signing(Action<? super WindowsSigningExtension> action) {
+    action.execute(this.getSigning());
+  }
 }

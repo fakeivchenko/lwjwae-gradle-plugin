@@ -35,7 +35,8 @@ import org.gradle.work.DisableCachingByDefault;
  * shortcut, the icon for Settings, and a {@code MajorUpgrade} so that a newer installer replaces
  * the older installation. Per-user installs go under {@code %LOCALAPPDATA%\Programs} without
  * elevation, and keep their key path in {@code HKCU}, as Windows Installer requires for files in a
- * user profile. {@code wix build} turns the source into the {@code .msi}. Windows only.
+ * user profile. {@code wix build} turns the source into the {@code .msi}, which {@code signtool}
+ * signs when a certificate is set. Windows only.
  *
  * <p>A scheme of links is a key of {@code HKCR} with {@code URL Protocol}, and a type of file a
  * {@code ProgId} with its extension, both of which open the executable with the link or the file as
@@ -100,6 +101,26 @@ public abstract class PackageMsi extends DefaultTask implements Associations {
   @Internal
   public abstract DirectoryProperty getWorkDirectory();
 
+  /** The certificate that signs the installer as a {@code .pfx} file, or nothing. */
+  @InputFile
+  @Optional
+  @PathSensitive(PathSensitivity.NONE)
+  public abstract RegularFileProperty getCertificateFile();
+
+  /** The password of the certificate file, kept out of the inputs of the task. */
+  @Internal
+  public abstract Property<String> getCertificatePassword();
+
+  /** The thumbprint of a certificate of the store that signs the installer, or nothing. */
+  @Input
+  @Optional
+  public abstract Property<String> getCertificateThumbprint();
+
+  /** The time stamp server of the signature. */
+  @Input
+  @Optional
+  public abstract Property<String> getTimestampUrl();
+
   /** The installer to write. */
   @OutputFile
   public abstract RegularFileProperty getInstaller();
@@ -138,6 +159,19 @@ public abstract class PackageMsi extends DefaultTask implements Associations {
                   source.toString());
               spec.setWorkingDir(work.toFile());
             });
+    if (this.getCertificateFile().isPresent() || this.getCertificateThumbprint().isPresent()) {
+      Signtool.sign(
+          this.getExecOperations(),
+          Signtool.arguments(
+              this.getCertificateFile().isPresent()
+                  ? this.getCertificateFile().get().getAsFile()
+                  : null,
+              this.getCertificatePassword().getOrNull(),
+              this.getCertificateThumbprint().getOrNull(),
+              this.getTimestampUrl().getOrElse(WindowsSigningExtension.DEFAULT_TIMESTAMP_URL),
+              this.getProductName().get(),
+              output));
+    }
   }
 
   /** Returns the WiX source of the installer. */

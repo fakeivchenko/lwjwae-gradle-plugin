@@ -1,7 +1,9 @@
 package dev.ivchenko.lwjwae.gradle.macos;
 
+import org.gradle.api.Action;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Nested;
 
 /**
  * The {@code Info.plist} file that is embedded into a macOS executable, the way the {@code java}
@@ -27,9 +29,29 @@ public abstract class MacOsExtension {
   public abstract RegularFileProperty getInfoPlist();
 
   /**
-   * The identity that {@code codesign} signs the {@code .app} bundle with, for example {@code
-   * Developer ID Application: Example (TEAMID)}. Unset by default: the bundle stays unsigned, and a
-   * user opens it once through the context menu. Notarization is not done.
+   * The identity that {@code codesign} signs the {@code .app} bundle and the disk image with, for
+   * example {@code Developer ID Application: Example (TEAMID)}. Unset by default: both stay
+   * unsigned, and a user opens the application once through the context menu.
    */
   public abstract Property<String> getSigningIdentity();
+
+  /**
+   * Whether the signature turns on the hardened runtime, which notarization requires. Default: on.
+   */
+  public abstract Property<Boolean> getHardenedRuntime();
+
+  /**
+   * A {@code .plist} of entitlements for the signature, for an application that needs one under the
+   * hardened runtime, such as the camera. Unset by default.
+   */
+  public abstract RegularFileProperty getEntitlements();
+
+  /** How the bundle and the disk image reach the notary service of Apple. Off by default. */
+  @Nested
+  public abstract NotarizationExtension getNotarization();
+
+  /** Configures {@link #getNotarization()}. */
+  public void notarization(Action<? super NotarizationExtension> action) {
+    action.execute(this.getNotarization());
+  }
 }

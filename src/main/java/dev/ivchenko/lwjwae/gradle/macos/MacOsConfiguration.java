@@ -59,6 +59,15 @@ public class MacOsConfiguration {
                         project.getGroup().toString(), project.getName())));
     macos.getBundleName().convention(extension.getDisplayName());
     macos.getVersion().convention(layout.projectVersion());
+    macos.getHardenedRuntime().convention(true);
+    macos
+        .getNotarization()
+        .getPassword()
+        .convention(
+            project
+                .getProviders()
+                .gradleProperty("lwjwae.notaryPassword")
+                .orElse(project.getProviders().environmentVariable("LWJWAE_NOTARY_PASSWORD")));
 
     DmgExtension dmg = extension.getPackaging().getDmg();
     dmg.getEnabled().convention(false);
@@ -95,7 +104,7 @@ public class MacOsConfiguration {
                   task.getInfoPlist().set(infoPlist);
                   task.getIcon().set(extension.getIcon());
                   task.getImageName().set(extension.getImageName());
-                  task.getSigningIdentity().set(macos.getSigningIdentity());
+                  MacSigning.wire(task, macos);
                   task.getBundle()
                       .set(
                           layout.distributionDirectory(
@@ -114,6 +123,7 @@ public class MacOsConfiguration {
               task.onlyIf(_ -> Platform.isMacOs());
               task.getBundle().set(app.flatMap(PackageMacApp::getBundle));
               task.getVolumeName().set(dmg.getVolumeName());
+              MacSigning.wire(task, macos);
               task.getDiskImage()
                   .set(
                       layout.distributionFile(
