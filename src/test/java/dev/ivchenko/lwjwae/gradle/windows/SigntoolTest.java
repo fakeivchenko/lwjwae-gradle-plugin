@@ -60,15 +60,17 @@ class SigntoolTest {
     LwjwaeExtension extension = project.getExtensions().getByType(LwjwaeExtension.class);
     extension.getImageName().set("demo");
     PackageMsi msi = (PackageMsi) project.getTasks().getByName("packageMsi");
+    // Path, not text: the separators are the ones of the machine.
+    Path unsigned = msi.getExecutable().get().getAsFile().toPath();
     Assertions.assertTrue(
-        msi.getExecutable().get().getAsFile().getPath().endsWith("nativeCompile/demo.exe")
-            || msi.getExecutable().get().getAsFile().getPath().endsWith("nativeCompile/demo"),
-        msi.getExecutable().get().getAsFile().getPath());
+        unsigned.endsWith(Path.of("native", "nativeCompile", "demo.exe"))
+            || unsigned.endsWith(Path.of("native", "nativeCompile", "demo")),
+        unsigned.toString());
 
     extension.getWindows().getSigning().getCertificateThumbprint().set("ABCDEF");
+    Path signed = msi.getExecutable().get().getAsFile().toPath();
     Assertions.assertTrue(
-        msi.getExecutable().get().getAsFile().getPath().endsWith("lwjwae/windows/signed/demo.exe"),
-        msi.getExecutable().get().getAsFile().getPath());
+        signed.endsWith(Path.of("lwjwae", "windows", "signed", "demo.exe")), signed.toString());
     Assertions.assertEquals(
         WindowsSigningExtension.DEFAULT_TIMESTAMP_URL, msi.getTimestampUrl().get());
   }
