@@ -8,6 +8,7 @@ import dev.ivchenko.lwjwae.gradle.util.Platform;
 import dev.ivchenko.lwjwae.gradle.windows.CompileWindowsResources;
 import dev.ivchenko.lwjwae.gradle.windows.WindowsConfiguration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import org.graalvm.buildtools.gradle.NativeImagePlugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -65,8 +66,25 @@ public class LwjwaePlugin implements Plugin<Project> {
   /** The defaults that aren't tied to one platform; each platform applies its own. */
   private static void applyDefaults(Project project, LwjwaeExtension extension) {
     extension.getManaged().convention(true);
-    extension.getVersion().convention(DefaultVersions.library());
-    extension.getCodecsVersion().convention(DefaultVersions.codecs());
+    // Read only when the build script sets no version of its own.
+    AtomicReference<Versions> read = new AtomicReference<>();
+    Provider<Versions> pinned =
+        project.provider(
+            () ->
+                read.updateAndGet(known -> known != null ? known : PinnedVersions.pinned(project)));
+    extension.getVersion().convention(pinned.map(Versions::library));
+    extension.getCodecsVersion().convention(pinned.map(Versions::codecs));
+    project
+        .getTasks()
+        .register(
+            "lwjwaeUpgrade",
+            task -> {
+              task.setGroup("lwjwae");
+              task.setDescription(
+                  "Pins the project to the newest releases of lwjwae, in " + PinnedVersions.FILE);
+              task.notCompatibleWithConfigurationCache("Asks the repository of lwjwae at run time");
+              task.doLast(_ -> PinnedVersions.upgrade(project));
+            });
     extension.getBackends().convention(Backends.CURRENT_PLATFORM);
     extension.getLinuxBackend().convention(LinuxBackend.GTK3);
     extension.getCodec().convention(Codec.NONE);

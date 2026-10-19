@@ -60,6 +60,9 @@ class LwjwaePluginTest {
 
   @TempDir Path project;
 
+  /** The repository that the plugin asks for the newest releases; empty unless a test fills it. */
+  @TempDir Path repository;
+
   @BeforeEach
   void writeSettings() throws IOException {
     Files.writeString(this.project.resolve("settings.gradle.kts"), "rootProject.name = \"demo\"\n");
@@ -78,6 +81,44 @@ class LwjwaePluginTest {
             + ":"
             + DefaultVersions.library(),
         line(result, "RUNTIME_ONLY="));
+  }
+
+  @Test
+  void firstBuildPinsTheNewestReleases() throws IOException {
+    this.release("7.7.7", "6.6.6");
+    this.writeBuild("lwjwae { codec = dev.ivchenko.lwjwae.gradle.Codec.JACKSON }\n");
+    BuildResult result = this.run();
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:7.7.7", line(result, "IMPLEMENTATION="));
+    Assertions.assertTrue(
+        line(result, "RUNTIME_ONLY=").contains("lwjwae-codec-jackson:6.6.6"), result.getOutput());
+    String pinned = Files.readString(this.project.resolve(PinnedVersions.FILE));
+    Assertions.assertTrue(pinned.contains("version=7.7.7"), pinned);
+    Assertions.assertTrue(pinned.contains("codecsVersion=6.6.6"), pinned);
+  }
+
+  @Test
+  void pinnedVersionsStayWhenNewerReleaseComesOut() throws IOException {
+    Files.writeString(
+        this.project.resolve(PinnedVersions.FILE), "version=5.5.5\ncodecsVersion=4.4.4\n");
+    this.release("7.7.7", "6.6.6");
+    this.writeBuild("");
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:5.5.5", line(this.run(), "IMPLEMENTATION="));
+  }
+
+  @Test
+  void upgradeMovesThePinToTheNewestReleases() throws IOException {
+    Files.writeString(
+        this.project.resolve(PinnedVersions.FILE), "version=5.5.5\ncodecsVersion=4.4.4\n");
+    this.release("7.7.7", "6.6.6");
+    this.writeBuild("");
+    this.run("lwjwaeUpgrade");
+    String pinned = Files.readString(this.project.resolve(PinnedVersions.FILE));
+    Assertions.assertTrue(pinned.contains("version=7.7.7"), pinned);
+    Assertions.assertTrue(pinned.contains("codecsVersion=6.6.6"), pinned);
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:7.7.7", line(this.run(), "IMPLEMENTATION="));
   }
 
   @Test
@@ -438,6 +479,21 @@ class LwjwaePluginTest {
     ImageIO.write(image, "png", this.project.resolve(LwjwaeExtension.DEFAULT_ICON).toFile());
   }
 
+  /** Puts the Maven metadata of a release of the library and of the codecs into the repository. */
+  private void release(String library, String codecs) throws IOException {
+    for (String[] artifact :
+        List.of(
+            new String[] {"dev/ivchenko/lwjwae/lwjwae-core", library},
+            new String[] {"dev/ivchenko/lwjwae/codec/lwjwae-codec-jackson", codecs})) {
+      Path directory = this.repository.resolve(artifact[0]);
+      Files.createDirectories(directory);
+      Files.writeString(
+          directory.resolve("maven-metadata.xml"),
+          "<metadata><versioning><release>%s</release></versioning></metadata>"
+              .formatted(artifact[1]));
+    }
+  }
+
   private BuildResult run() {
     return this.run("printDependencies");
   }
@@ -445,6 +501,7 @@ class LwjwaePluginTest {
   private BuildResult run(String... tasks) {
     List<String> arguments = new ArrayList<>(List.of(tasks));
     arguments.add("-q");
+    arguments.add("-P" + PinnedVersions.REPOSITORY_PROPERTY + "=" + this.repository.toUri());
     return GradleRunner.create()
         .withProjectDir(this.project.toFile())
         .withPluginClasspath()
