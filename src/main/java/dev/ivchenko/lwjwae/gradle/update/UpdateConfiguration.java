@@ -143,6 +143,7 @@ public class UpdateConfiguration {
               task.getVersion().set(layout.projectVersion());
               task.getNotes().set(updates.getNotes());
               task.getMinimumVersion().set(updates.getMinimumVersion());
+              task.getValidFor().set(updates.getValidFor());
               task.getPrivateKey().set(updates.getPrivateKey());
               task.getManifest().set(updates.getDirectory().file(MANIFEST));
               task.getSignature().set(updates.getDirectory().file(MANIFEST + ".sig"));

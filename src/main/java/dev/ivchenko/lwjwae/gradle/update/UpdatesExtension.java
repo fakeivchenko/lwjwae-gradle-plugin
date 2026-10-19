@@ -1,5 +1,6 @@
 package dev.ivchenko.lwjwae.gradle.update;
 
+import java.time.Duration;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
 
@@ -50,6 +51,14 @@ public abstract class UpdatesExtension {
    * mandatory}. Unset by default.
    */
   public abstract Property<String> getMinimumVersion();
+
+  /**
+   * How long a signed manifest stays believed, from the moment {@code updateManifest} signs it:
+   * after that, the application refuses it, so that an old manifest served again can't hold it on
+   * an old version. The release must then be signed anew before it runs out. Unset by default: the
+   * manifest never expires.
+   */
+  public abstract Property<Duration> getValidFor();
 
   /** Where the files of a release and the manifest go. Default: {@code build/lwjwae/update}. */
   public abstract DirectoryProperty getDirectory();
