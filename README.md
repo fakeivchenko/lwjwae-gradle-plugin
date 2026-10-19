@@ -16,8 +16,11 @@ The plugin sets a Java project up as an lwjwae application:
 
 - **The dependencies.** `lwjwae-core` to compile against, the backend of the machine that runs the
   build at runtime, and a codec from [lwjwae-codecs](https://github.com/fakeivchenko/lwjwae-codecs)
-  when you ask for one. The versions come with the plugin; a build script overrides them when it
-  needs to.
+  when you ask for one. The first build pins the newest releases in `lwjwae.properties` at the root
+  of the build, which goes into the repository of the project, and every build after it keeps them,
+  whatever comes out later; `./gradlew lwjwaeUpgrade` moves the project to the newest releases.
+  Offline, or without the repository of lwjwae, the first build pins the versions that the plugin
+  came with. A version in the `lwjwae {}` block wins over the file.
 - **The native image.** The plugin applies the GraalVM Native Build Tools plugin and configures
   `nativeCompile`: `--enable-native-access` for the FFM API, `-Os`, a capped heap, the image name.
   The same `--enable-native-access` goes to `gradle run`.

@@ -9,6 +9,8 @@ import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HexFormat;
@@ -65,6 +67,7 @@ class UpdatesTest {
         this.project.resolve("build.gradle.kts"),
         """
         import dev.ivchenko.lwjwae.gradle.update.*
+        import java.time.Duration
         plugins { id("dev.ivchenko.lwjwae") }
         version = "v1.4.0"
         lwjwae {
@@ -73,6 +76,7 @@ class UpdatesTest {
                 publicKey = "%s"
                 notes = "Faster \\"sync\\""
                 minimumVersion = "1.0.0"
+                validFor = Duration.ofDays(30)
             }
         }
         tasks.withType<PackageUpdate>().configureEach {
@@ -110,6 +114,11 @@ class UpdatesTest {
     Assertions.assertTrue(text.contains("\"version\": \"1.4.0\""), text);
     Assertions.assertTrue(text.contains("\"notes\": \"Faster \\\"sync\\\"\""), text);
     Assertions.assertTrue(text.contains("\"minimumVersion\": \"1.0.0\""), text);
+    Matcher expires = Pattern.compile("\"expires\": \"([^\"]+)\"").matcher(text);
+    Assertions.assertTrue(expires.find(), text);
+    Duration left = Duration.between(Instant.now(), Instant.parse(expires.group(1)));
+    Assertions.assertTrue(
+        left.compareTo(Duration.ofDays(29)) > 0 && left.compareTo(Duration.ofDays(30)) <= 0, text);
     Assertions.assertTrue(
         text.contains(
             "\"%s\": {\"url\": \"%s\", \"sha256\": \"%s\", \"size\": %d}"

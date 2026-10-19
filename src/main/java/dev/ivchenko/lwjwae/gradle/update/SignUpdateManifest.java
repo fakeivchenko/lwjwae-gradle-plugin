@@ -12,6 +12,9 @@ import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -60,6 +63,11 @@ public abstract class SignUpdateManifest extends DefaultTask {
   @Optional
   public abstract Property<String> getMinimumVersion();
 
+  /** How long the manifest stays believed after it is signed. */
+  @Input
+  @Optional
+  public abstract Property<Duration> getValidFor();
+
   /** The private key, as Base64 of its PKCS #8 encoding; not an input, so no cache sees it. */
   @Internal
   public abstract Property<String> getPrivateKey();
@@ -106,6 +114,11 @@ public abstract class SignUpdateManifest extends DefaultTask {
       manifest
           .append(",\n  \"minimumVersion\": ")
           .append(SignUpdateManifest.json(this.getMinimumVersion().get()));
+    }
+    if (this.getValidFor().isPresent()) {
+      Instant expires =
+          Instant.now().plus(this.getValidFor().get()).truncatedTo(ChronoUnit.SECONDS);
+      manifest.append(",\n  \"expires\": ").append(SignUpdateManifest.json(expires.toString()));
     }
     manifest.append(",\n  \"artifacts\": {\n").append(String.join(",\n", artifacts));
     manifest.append("\n  }\n}\n");
