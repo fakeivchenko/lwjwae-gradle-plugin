@@ -18,7 +18,8 @@ import org.gradle.api.provider.Property;
  * }</pre>
  *
  * <p>With a manifest URL, the application carries both in {@code
- * META-INF/lwjwae/update.properties}, where {@code application.updater()} reads them. {@code
+ * META-INF/lwjwae/update.properties}, where {@code Updater.of(application)} reads them, and the
+ * plugin adds {@code lwjwae-updater} from the first release of the library that has it. {@code
  * generateUpdateKeys} prints a new pair of keys once; the public one goes here, the private one
  * into a secret of CI, never into the repository.
  *

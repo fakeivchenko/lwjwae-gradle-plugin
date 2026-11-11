@@ -209,6 +209,31 @@ class LwjwaePluginTest {
   }
 
   @Test
+  void updaterComesWithAManifestUrlFromTheReleasesThatHaveIt() throws IOException {
+    String updates =
+        """
+        lwjwae {
+            version = "%s"
+            updates { manifestUrl = "https://example.com/demo/manifest.json" }
+        }
+        """;
+    this.writeBuild(updates.formatted("0.13.0"));
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:0.13.0 dev.ivchenko.lwjwae:lwjwae-updater:0.13.0",
+        line(this.run(), "IMPLEMENTATION="));
+    this.writeBuild(updates.formatted("0.12.0"));
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:0.12.0", line(this.run(), "IMPLEMENTATION="));
+    this.writeBuild("lwjwae { version = \"0.13.0\" }\n");
+    Assertions.assertEquals(
+        "dev.ivchenko.lwjwae:lwjwae-core:0.13.0", line(this.run(), "IMPLEMENTATION="));
+    Assertions.assertFalse(DependencyConfiguration.hasUpdater("0.12.9"));
+    Assertions.assertTrue(DependencyConfiguration.hasUpdater("0.13"));
+    Assertions.assertTrue(DependencyConfiguration.hasUpdater("0.99.0-local"));
+    Assertions.assertTrue(DependencyConfiguration.hasUpdater("main-SNAPSHOT"));
+  }
+
+  @Test
   @EnabledOnOs(OS.LINUX)
   void gtk4IsTheBackendOfThisLinuxWhenAsked() throws IOException {
     this.writeBuild("lwjwae { linuxBackend = dev.ivchenko.lwjwae.gradle.LinuxBackend.GTK4 }\n");
