@@ -14,6 +14,10 @@ import org.gradle.api.provider.Provider;
  * Adds the library: {@code lwjwae-core} to compile against, and the backends and the codec at
  * runtime, at the versions of the {@code lwjwae {}} block.
  *
+ * <p>A module that the build asks for through a block of its own comes with that block: {@code
+ * lwjwae-updater} with a manifest URL in {@code updates {}}. Each joins only from the first release
+ * of the library that has it, because a build pinned to an older one would fail to resolve it.
+ *
  * <p>The dependencies are added lazily, with {@code addAllLater}, so the block can change the
  * versions, the backends, or the codec after the plugin was applied, and {@code managed = false}
  * takes all of it back.
@@ -30,6 +34,12 @@ class DependencyConfiguration {
   final String FIRST_PROCESSOR_VERSION = "0.8.0";
 
   /**
+   * The first release of the library with {@code lwjwae-updater}; the ones before carry the updater
+   * in {@code lwjwae-core}.
+   */
+  final String FIRST_UPDATER_VERSION = "0.13.0";
+
+  /**
    * Adds the dependencies to {@code implementation}, {@code runtimeOnly}, and {@code
    * annotationProcessor}: the processor writes the native-image metadata of the types that cross
    * the bridge, those marked {@code @BridgeType}, from the first release of the library that has
@@ -38,6 +48,8 @@ class DependencyConfiguration {
   void configure(Project project, LwjwaeExtension extension) {
     DependencyHandler dependencies = project.getDependencies();
     Provider<Boolean> managed = extension.getManaged();
+    Provider<Boolean> updates =
+        extension.getUpdates().getManifestUrl().map(_ -> true).orElse(false);
     project
         .getConfigurations()
         .named(
@@ -50,8 +62,8 @@ class DependencyConfiguration {
                             extension.getVersion(),
                             (on, version) ->
                                 on
-                                    ? List.of(
-                                        dependencies.create(GROUP + ":lwjwae-core:" + version))
+                                    ? DependencyConfiguration.libraryDependencies(
+                                        dependencies, version, updates.get())
                                     : List.of())));
     project
         .getConfigurations()
@@ -84,17 +96,27 @@ class DependencyConfiguration {
                                     : List.of())));
   }
 
-  /**
-   * Whether the release {@code version} of the library has {@code lwjwae-processor}: {@value
-   * #FIRST_PROCESSOR_VERSION} or later, with missing parts read as zeros, and any version that
-   * doesn't start with a number, such as one built locally.
-   */
+  /** Whether the release {@code version} of the library has {@code lwjwae-processor}. */
   boolean hasProcessor(String version) {
+    return DependencyConfiguration.isAtLeast(version, FIRST_PROCESSOR_VERSION);
+  }
+
+  /** Whether the release {@code version} of the library has {@code lwjwae-updater}. */
+  boolean hasUpdater(String version) {
+    return DependencyConfiguration.isAtLeast(version, FIRST_UPDATER_VERSION);
+  }
+
+  /**
+   * Whether {@code version} is {@code firstVersion} or later, with missing parts read as zeros. A
+   * version that doesn't start with a number, such as {@code main-SNAPSHOT}, counts as later: it's
+   * built from the sources, which have every module.
+   */
+  private boolean isAtLeast(String version, String firstVersion) {
     List<Integer> given = DependencyConfiguration.numbers(version);
     if (given.isEmpty()) {
       return true;
     }
-    List<Integer> first = DependencyConfiguration.numbers(FIRST_PROCESSOR_VERSION);
+    List<Integer> first = DependencyConfiguration.numbers(firstVersion);
     for (int index = 0; index < first.size(); index++) {
       int part = index < given.size() ? given.get(index) : 0;
       if (part != first.get(index)) {
@@ -125,6 +147,16 @@ class DependencyConfiguration {
       return "lwjwae-macos";
     }
     return linux.module();
+  }
+
+  private List<Dependency> libraryDependencies(
+      DependencyHandler dependencies, String version, boolean updates) {
+    List<Dependency> library = new ArrayList<>();
+    library.add(dependencies.create(GROUP + ":lwjwae-core:" + version));
+    if (updates && DependencyConfiguration.hasUpdater(version)) {
+      library.add(dependencies.create(GROUP + ":lwjwae-updater:" + version));
+    }
+    return library;
   }
 
   private List<Dependency> runtimeDependencies(

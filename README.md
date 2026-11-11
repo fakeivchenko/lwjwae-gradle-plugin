@@ -15,8 +15,8 @@
 The plugin sets a Java project up as an lwjwae application:
 
 - **The dependencies.** `lwjwae-core` to compile against, the backend of the machine that runs the
-  build at runtime, and a codec from [lwjwae-codecs](https://github.com/fakeivchenko/lwjwae-codecs)
-  when you ask for one. The first build pins the newest releases in `lwjwae.properties` at the root
+  build at runtime, a codec from [lwjwae-codecs](https://github.com/fakeivchenko/lwjwae-codecs)
+  when you ask for one, and `lwjwae-updater` with an `updates {}` block. The first build pins the newest releases in `lwjwae.properties` at the root
   of the build, which goes into the repository of the project, and every build after it keeps them,
   whatever comes out later; `./gradlew lwjwaeUpgrade` moves the project to the newest releases.
   Offline, or without the repository of lwjwae, the first build pins the versions that the plugin
@@ -42,7 +42,8 @@ The plugin sets a Java project up as an lwjwae application:
 - **Links and files.** `urlScheme("notes")` and `fileType("note")` register a scheme of links and a
   type of files in every package, and the application hears of each through `Application.onOpen`.
 - **Updates.** With `updates { manifestUrl; publicKey }`, the application finds its new versions
-  through `application.updater()`. `generateUpdateKeys` makes the Ed25519 keys once,
+  through `Updater.of(application)` of `lwjwae-updater`, which the plugin adds from lwjwae 0.13.0;
+  before 0.13.0, the updater is `application.updater()` of `lwjwae-core`. `generateUpdateKeys` makes the Ed25519 keys once,
   `packageUpdate` puts the package of each platform into the release directory, and
   `updateManifest` writes the manifest over them and signs it with the private key from
   `LWJWAE_UPDATE_PRIVATE_KEY`. Upload the directory to the manifest URL and the release is out.
